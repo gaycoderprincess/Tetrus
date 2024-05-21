@@ -1,0 +1,146 @@
+#include <ctime>
+#include <random>
+
+#include "nya_dx11_appbase.h"
+
+#include "tetrus_config.h"
+
+int GetRandom(int max) {
+	static auto rng = std::mt19937(time(nullptr));
+
+	std::uniform_int_distribution<int> uni(0, max - 1);
+	return uni(rng);
+}
+
+double NESFramesToSeconds(double time) {
+	return time * (1.0 / 60.0988);
+}
+
+NyaDrawing::CNyaRGBA32 NESPaletteToRGB(int paletteId) {
+	paletteId %= 64;
+	NyaDrawing::CNyaRGBA32 colors[64] = {
+			{0x7C, 0x7C, 0x7C, 0xFF},
+			{0x00, 0x00, 0xFC, 0xFF},
+			{0x00, 0x00, 0xBC, 0xFF},
+			{0x44, 0x28, 0xBC, 0xFF},
+			{0x94, 0x00, 0x84, 0xFF},
+			{0xA8, 0x00, 0x20, 0xFF},
+			{0xA8, 0x10, 0x00, 0xFF},
+			{0x88, 0x14, 0x00, 0xFF},
+			{0x50, 0x30, 0x00, 0xFF},
+			{0x00, 0x78, 0x00, 0xFF},
+			{0x00, 0x68, 0x00, 0xFF},
+			{0x00, 0x58, 0x00, 0xFF},
+			{0x00, 0x40, 0x58, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0xBC, 0xBC, 0xBC, 0xFF},
+			{0x00, 0x78, 0xF8, 0xFF},
+			{0x00, 0x58, 0xF8, 0xFF},
+			{0x68, 0x44, 0xFC, 0xFF},
+			{0xD8, 0x00, 0xCC, 0xFF},
+			{0xE4, 0x00, 0x58, 0xFF},
+			{0xF8, 0x38, 0x00, 0xFF},
+			{0xE4, 0x5C, 0x10, 0xFF},
+			{0xAC, 0x7C, 0x00, 0xFF},
+			{0x00, 0xB8, 0x00, 0xFF},
+			{0x00, 0xA8, 0x00, 0xFF},
+			{0x00, 0xA8, 0x44, 0xFF},
+			{0x00, 0x88, 0x88, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0xF8, 0xF8, 0xF8, 0xFF},
+			{0x3C, 0xBC, 0xFC, 0xFF},
+			{0x68, 0x88, 0xFC, 0xFF},
+			{0x98, 0x78, 0xF8, 0xFF},
+			{0xF8, 0x78, 0xF8, 0xFF},
+			{0xF8, 0x58, 0x98, 0xFF},
+			{0xF8, 0x78, 0x58, 0xFF},
+			{0xFC, 0xA0, 0x44, 0xFF},
+			{0xF8, 0xB8, 0x00, 0xFF},
+			{0xB8, 0xF8, 0x18, 0xFF},
+			{0x58, 0xD8, 0x54, 0xFF},
+			{0x58, 0xF8, 0x98, 0xFF},
+			{0x00, 0xE8, 0xD8, 0xFF},
+			{0x78, 0x78, 0x78, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0xFC, 0xFC, 0xFC, 0xFF},
+			{0xA4, 0xE4, 0xFC, 0xFF},
+			{0xB8, 0xB8, 0xF8, 0xFF},
+			{0xD8, 0xB8, 0xF8, 0xFF},
+			{0xF8, 0xB8, 0xF8, 0xFF},
+			{0xF8, 0xA4, 0xC0, 0xFF},
+			{0xF0, 0xD0, 0xB0, 0xFF},
+			{0xFC, 0xE0, 0xA8, 0xFF},
+			{0xF8, 0xD8, 0x78, 0xFF},
+			{0xD8, 0xF8, 0x78, 0xFF},
+			{0xB8, 0xF8, 0xB8, 0xFF},
+			{0xB8, 0xF8, 0xD8, 0xFF},
+			{0x00, 0xFC, 0xFC, 0xFF},
+			{0xF8, 0xD8, 0xF8, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+			{0x00, 0x00, 0x00, 0xFF},
+	};
+	return colors[paletteId];
+}
+
+// level strings from NES, including the borked ones
+const char* GetLevelName(int level) {
+	const char* levelStrings[] =
+	{
+			"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15",
+			"16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "00", "0A",
+			"14", "1E", "28", "32", "3C", "46", "50", "5A", "64", "6E", "78", "82", "8C", "96", "A0", "AA",
+			"B4", "BE", "C6", "20", "E6", "20", "06", "21", "26", "21", "46", "21", "66", "21", "86", "21",
+			"A6", "21", "C6", "21", "E6", "21", "06", "22", "26", "22", "46", "22", "66", "22", "86", "22",
+			"A6", "22", "C6", "22", "E6", "22", "06", "23", "26", "23", "85", "A8", "29", "F0", "4A", "4A",
+			"4A", "4A", "8D", "07", "20", "A5", "A8", "29", "0F", "8D", "07", "20", "60", "A6", "49", "E0",
+			"15", "10", "53", "BD", "D6", "96", "A8", "8A", "0A", "AA", "E8", "BD", "EA", "96", "8D", "06",
+			"20", "CA", "A5", "BE", "C9", "01", "F0", "1E", "A5", "B9", "C9", "05", "F0", "0C", "BD", "EA",
+			"96", "38", "E9", "02", "8D", "06", "20", "4C", "67", "97", "BD", "EA", "96", "18", "69", "0C",
+			"8D", "06", "20", "4C", "67", "97", "BD", "EA", "96", "18", "69", "06", "8D", "06", "20", "A2",
+			"0A", "B1", "B8", "8D", "07", "20", "C8", "CA", "D0", "F7", "E6", "49", "A5", "49", "C9", "14",
+			"30", "04", "A9", "20", "85", "49", "60", "A5", "B1", "29", "03", "D0", "78", "A9", "00", "85",
+			"AA", "A6", "AA", "B5", "4A", "F0", "5C", "0A", "A8", "B9", "EA", "96", "85", "A8", "A5", "BE",
+			"C9", "01", "D0", "0A", "A5", "A8", "18", "69", "06", "85", "A8", "4C", "BD", "97", "A5", "B9",
+			"C9", "04", "D0", "0A", "A5", "A8", "38", "E9", "02", "85", "A8", "4C", "BD", "97", "A5", "A8",
+	};
+
+	// copy out the 2 characters so if the player gets above level 255 it corrupts even more :3
+	// or the game crashes, either way it's classic nes behavior >w<
+	static char name[3];
+	memcpy(name, levelStrings[level], 2);
+	name[2] = 0;
+	return levelStrings[level];
+}
+
+const char* GetLineClearCountName(int count) {
+	static std::string name;
+	if (count <= 999) {
+		name = std::format("{:03}", count);
+		return name.c_str();
+	}
+
+	count -= 1000;
+
+	int numIncrement = 0;
+	while (count >= 100) {
+		count -= 100;
+		numIncrement++;
+	}
+
+	name = std::format("{:03}", count + 100);
+	name[0] = 'A' + numIncrement;
+	return name.c_str();
+}
+
+void DrawBackgroundImage(float left, float right) {
+	static auto background = LoadTexture("background.png");
+	if (background) DrawRectangle(left, right, 0, 1, {225,225,225,255}, 0, background);
+	else DrawRectangle(left, right, 0, 1, {0, 0, 0,255});
+}
+
+CNyaTimer gGameTimer = CNyaTimer(1.0 / 2.0);
