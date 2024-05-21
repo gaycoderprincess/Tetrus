@@ -6,7 +6,7 @@ namespace Scoreboard {
 			int randomSeed;
 			int gameMode;
 			char playerName[24];
-			size_t additionalDataSize = 0; // if i ever add replays and such
+			size_t additionalDataSize = 0;
 		} saveData;
 		uint8_t* additionalData = nullptr;
 		bool highlighted = false;
