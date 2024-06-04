@@ -1,6 +1,6 @@
 # Tetrus
 
-NES Tetris clone with unlocked FPS and local & online multiplayer support written in C++ with DirectX 11, ImGui and BASS.
+NES Tetris clone with unlocked FPS and local & online multiplayer written in C++ with DirectX 11, ImGui and BASS.
 
 The goal of this project is to be accurate to the NES version where it counts, i.e. timings, speed, rotations, spawn positions, etc. while also feeling more responsive and modern, along with some new additions to freshen up gameplay.
 
