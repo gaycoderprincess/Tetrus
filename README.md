@@ -1,6 +1,6 @@
 # Tetrus
 
-NES Tetris clone with unlocked FPS and couch multiplayer support written in C++ with DirectX 11, ImGui and BASS.
+NES Tetris clone with unlocked FPS and local & online multiplayer support written in C++ with DirectX 11, ImGui and BASS.
 
 The goal of this project is to be accurate to the NES version where it counts, i.e. timings, speed, rotations, spawn positions, etc. while also feeling more responsive and modern, along with some new additions to freshen up gameplay.
 
@@ -12,6 +12,7 @@ Special thanks to my lovely wifey teddyator for the art assets.
 ## Features
 
 - Couch multiplayer with up to 4 players, with co-op mode (by sharing a larger board) and versus mode
+- Online multiplayer versus mode with up to 256 players
 - Starting level changeable between 00, 09, 18, 19, and 29
 - Options to set alternate keybinds for the same action in order to be able to play faster without an NES controller
 - Option to choose between the NES randomizer, the modern bag randomizer, and a truly unbiased randomizer
