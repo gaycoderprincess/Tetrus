@@ -1,6 +1,6 @@
 # Tetrus
 
-NES Tetris clone with unlocked FPS and local & online multiplayer written in C++ with DirectX 11, ImGui and BASS.
+NES Tetris clone with unlocked FPS and local & online multiplayer written in C++ with DirectX 11, ImGui, BASS and ENet.
 
 The goal of this project is to be accurate to the NES version where it counts, i.e. timings, speed, rotations, spawn positions, etc. while also feeling more responsive and modern, along with some new additions to freshen up gameplay.
 
@@ -28,7 +28,17 @@ Building is done on an Arch Linux system with CLion and vcpkg being used for the
 
 Before you begin, clone nya-common to a folder next to this one, so it can be found.
 
-Required packages: `mingw-w64-gcc`
+Required packages: `mingw-w64-gcc vcpkg`
+
+To install all dependencies, use:
+```console
+vcpkg install enet:x86-mingw-static
+```
+
+Once installed, copy files from `~/.vcpkg/vcpkg/installed/x86-mingw-static/`:
+
+- `include` dir to `nya-common/3rdparty`
+- `lib` dir to `nya-common/lib32`
 
 You should be able to build the project now in CLion.
 
