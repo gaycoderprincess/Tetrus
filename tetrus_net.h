@@ -17,6 +17,7 @@
 #include "tetrus_net.h"
 
 extern uint32_t nNetGameAddress;
+extern uint16_t nNetGamePort;
 extern int nSpectatePlayer;
 
 void DisconnectNet();

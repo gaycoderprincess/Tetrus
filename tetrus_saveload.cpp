@@ -14,9 +14,9 @@ bool LoadControlConfig() {
 	file.open(sProgramDir + "/controls.dat", std::ios::binary);
 	if (!file.is_open()) return false;
 
-	char header[4];
+	char header[5];
 	file.read(header, sizeof(header));
-	if (memcmp(header, "nya~", sizeof(header)) != 0) return false;
+	if (memcmp(header, "nya!~", sizeof(header)) != 0) return false;
 
 	file.read((char*)aPlayerControls, sizeof(aPlayerControls));
 
@@ -42,7 +42,7 @@ bool SaveControlConfig() {
 	file.open(sProgramDir + "/controls.dat", std::ios::binary);
 	if (!file.is_open()) return false;
 
-	file.write("nya~", 4);
+	file.write("nya!~", 5);
 	file.write((char*)aPlayerControls, sizeof(aPlayerControls));
 
 	return true;

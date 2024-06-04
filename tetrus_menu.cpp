@@ -11,6 +11,8 @@
 #include "tetrus_scoreboard.h"
 #include "tetrus_net.h"
 
+bool bOnlinePauseMenu = false;
+
 float fMenuSize;
 float fMenuTop;
 float fForceMenuWidth = 0.0;
@@ -19,10 +21,16 @@ int nDrawPiecePreviews = -1;
 bool bBlockMenuBack = false;
 bool bBlockMenuSelect = false;
 bool bIsInInputMenu = false;
-int nSelectedMenuOption[8] = { 0 };
-int nNumMenuOptions[8] = { 0 };
-int nMenuLevel = 0;
-int nTargetMenuLevel = 0;
+
+struct tMenuState {
+	int nSelectedOption[8] = { 0 };
+	int nNumOptions[8] = { 0 };
+	int nLevel = 0;
+	int nTargetLevel = 0;
+};
+tMenuState mainMenuState;
+tMenuState onlinePauseMenuState;
+tMenuState* pMenu = &mainMenuState;
 
 enum eMenuFlags {
 	MENU_FLAG_SHOW_ABOVE = 1 << 0,
@@ -37,10 +45,10 @@ public:
 	uint32_t flags = 0;
 
 	tmpMenuClass() {
-		nTargetMenuLevel++;
+		pMenu->nTargetLevel++;
 	}
 	~tmpMenuClass() {
-		nTargetMenuLevel--;
+		pMenu->nTargetLevel--;
 	}
 	explicit operator int() const {
 		if (flags & MENU_FLAG_EDIT_VALUE && isHovered) {
@@ -67,8 +75,8 @@ struct tMenuOption {
 
 	[[nodiscard]] bool ShouldDraw() const {
 		if (str.empty()) return false;
-		if (level != nMenuLevel && !(flags & MENU_FLAG_SHOW_ABOVE)) return false;
-		if (level > nMenuLevel) return false;
+		if (level != pMenu->nLevel && !(flags & MENU_FLAG_SHOW_ABOVE)) return false;
+		if (level > pMenu->nLevel) return false;
 		return true;
 	}
 
@@ -94,28 +102,28 @@ struct tMenuOption {
 std::vector<tMenuOption> aMenuOptionsToDraw;
 
 tmpMenuClass DrawMenuOption(const char* str, uint32_t flags = 0) {
-	bool bSelected = nSelectedMenuOption[nTargetMenuLevel] == nNumMenuOptions[nTargetMenuLevel];
+	bool bSelected = pMenu->nSelectedOption[pMenu->nTargetLevel] == pMenu->nNumOptions[pMenu->nTargetLevel];
 
 	tMenuOption option;
 	option.str = str;
-	option.id = nNumMenuOptions[nTargetMenuLevel];
+	option.id = pMenu->nNumOptions[pMenu->nTargetLevel];
 	option.selected = bSelected;
-	option.level = nTargetMenuLevel;
+	option.level = pMenu->nTargetLevel;
 	option.flags = flags;
 	aMenuOptionsToDraw.push_back(option);
 
-	nNumMenuOptions[nTargetMenuLevel]++;
+	pMenu->nNumOptions[pMenu->nTargetLevel]++;
 	if (flags & MENU_FLAG_SHOW_ABOVE) {
-		for (int i = nTargetMenuLevel + 1; i < 8; i++) {
-			nNumMenuOptions[i]++;
+		for (int i = pMenu->nTargetLevel + 1; i < 8; i++) {
+			pMenu->nNumOptions[i]++;
 		}
 	}
 
 	auto retValue = tmpMenuClass();
 	retValue.flags = flags;
-	retValue.isHovered = bSelected && nMenuLevel >= nTargetMenuLevel - 1;
-	retValue.isSelected = bSelected && nMenuLevel >= nTargetMenuLevel;
-	if (retValue.isSelected && (flags & MENU_FLAG_BLOCK_ABOVE || flags & MENU_FLAG_EDIT_VALUE)) nMenuLevel--;
+	retValue.isHovered = bSelected && pMenu->nLevel >= pMenu->nTargetLevel - 1;
+	retValue.isSelected = bSelected && pMenu->nLevel >= pMenu->nTargetLevel;
+	if (retValue.isSelected && (flags & MENU_FLAG_BLOCK_ABOVE || flags & MENU_FLAG_EDIT_VALUE)) pMenu->nLevel--;
 	return retValue;
 }
 
@@ -172,8 +180,10 @@ void ProcessColorPaletteMenu() {
 void ProcessPlayerSettingsMenu(int i) {
 	if (DrawMenuOption(std::format("Ghost Piece - {}", gGameConfig.dropPreviewOn[i] ? "On" : "Off").c_str(), MENU_FLAG_EDIT_VALUE)) {
 		gGameConfig.dropPreviewOn[i] = !gGameConfig.dropPreviewOn[i];
+
+		if (NyaNet::IsConnected() && !aPlayers.empty()) aPlayers[0]->dropPreviewOn = gGameConfig.dropPreviewOn[0];
 	}
-	if (auto tmp = DrawMenuOption(std::format("Name {}", ((std::string)gGameConfig.playerName[i] + (bIsInInputMenu ? "..." : ""))).c_str(), MENU_FLAG_BLOCK_ABOVE)) {
+	if (auto tmp = DrawMenuOption(std::format("Name - {}", ((std::string)gGameConfig.playerName[i] + (bIsInInputMenu ? "..." : ""))).c_str(), MENU_FLAG_BLOCK_ABOVE)) {
 		bIsInInputMenu = true;
 	}
 	if (auto tmp = DrawMenuOption("Controls")) {
@@ -181,7 +191,7 @@ void ProcessPlayerSettingsMenu(int i) {
 
 		for (int j = 0; j < CController::NUM_CONTROLS; j++) {
 			if (auto tmp = DrawMenuOption((CController::GetControlName(j) + (std::string) " - " +
-										   (nSelectedMenuOption[nTargetMenuLevel] == nNumMenuOptions[nTargetMenuLevel] && nMenuLevel > nTargetMenuLevel ? "..." : player->GetKeyName(j))).c_str(), true)) {
+										   (pMenu->nSelectedOption[pMenu->nTargetLevel] == pMenu->nNumOptions[pMenu->nTargetLevel] && pMenu->nLevel > pMenu->nTargetLevel ? "..." : player->GetKeyName(j))).c_str(), true)) {
 				bBlockMenuBack = true;
 				bBlockMenuSelect = true;
 
@@ -189,17 +199,20 @@ void ProcessPlayerSettingsMenu(int i) {
 				if (IsKeyJustPressed(VK_ESCAPE)) {
 					control->controller = -1;
 					control->keyId = 0;
-					nMenuLevel--;
+					pMenu->nLevel--;
 				}
 				else {
 					if (KeybindCheck(control)) {
-						nMenuLevel--;
+						pMenu->nLevel--;
 					}
 				}
 			}
 		}
-		if (DrawMenuOption("Back", true)) {
-			nMenuLevel -= 2;
+		player->rumblePad += (int)DrawMenuOption(std::format("Rumble - {}", player->rumblePad >= 0 ? ("Pad " + std::to_string(player->rumblePad + 1)) : "Off").c_str(), MENU_FLAG_EDIT_VALUE | MENU_FLAG_SHOW_ABOVE);
+		if (player->rumblePad < -1) player->rumblePad = XUSER_MAX_COUNT - 1;
+		if (player->rumblePad >= XUSER_MAX_COUNT) player->rumblePad = -1;
+		if (DrawMenuOption("Back", MENU_FLAG_SHOW_ABOVE)) {
+			pMenu->nLevel -= 2;
 		}
 	}
 
@@ -225,7 +238,7 @@ void ProcessPlayerSettingsMenu() {
 		if (auto tmp = DrawMenuOption(std::format("Player {}", i + 1).c_str())) {
 			ProcessPlayerSettingsMenu(i);
 			if (DrawMenuOption("Back")) {
-				nMenuLevel -= 2;
+				pMenu->nLevel -= 2;
 			}
 		}
 	}
@@ -251,23 +264,23 @@ void ProcessOptionsMenu() {
 		if (DrawMenuOption(std::format("Board Borders - {}", gGameConfig.boardBorders ? "On" : "Off").c_str(), MENU_FLAG_EDIT_VALUE)) {
 			gGameConfig.boardBorders = !gGameConfig.boardBorders;
 		}
-		if (gGameConfig.prideFlagsOptionVisible && DrawMenuOption(std::format("Pride Flag Colors - {}", gGameConfig.prideFlags ? "On" : "Off").c_str(), MENU_FLAG_EDIT_VALUE)) {
+		if (gGameConfig.prideFlagsOptionVisible && !bOnlinePauseMenu && DrawMenuOption(std::format("Pride Flag Colors - {}", gGameConfig.prideFlags ? "On" : "Off").c_str(), MENU_FLAG_EDIT_VALUE)) {
 			gGameConfig.prideFlags = !gGameConfig.prideFlags;
 		}
 		if (auto tmp = DrawMenuOption("Color Palette")) {
 			ProcessColorPaletteMenu();
 			if (DrawMenuOption("Back")) {
-				nMenuLevel -= 2;
+				pMenu->nLevel -= 2;
 			}
 		}
 		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
+			pMenu->nLevel -= 2;
 		}
 	}
 	if (auto tmp = DrawMenuOption("Player Settings")) {
 		ProcessPlayerSettingsMenu();
 		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
+			pMenu->nLevel -= 2;
 		}
 	}
 }
@@ -286,7 +299,7 @@ void ProcessScoresMenu() {
 							}
 						}
 						if (DrawMenuOption("Back")) {
-							nMenuLevel -= 2;
+							pMenu->nLevel -= 2;
 						}
 					}
 					else {
@@ -297,7 +310,7 @@ void ProcessScoresMenu() {
 				}
 			}
 			if (DrawMenuOption("Back")) {
-				nMenuLevel -= 2;
+				pMenu->nLevel -= 2;
 			}
 		}
 	}
@@ -320,7 +333,7 @@ void ShowGameSettings() {
 			gForcedRNGValue = -1;
 			ResetAllPlayers();
 		}
-		nMenuLevel--;
+		pMenu->nLevel--;
 	}
 	gGameConfig.startingLevel += (int)DrawMenuOption(std::format("Starting Level - {}", gGameConfig.GetStartingLevelName()).c_str(), MENU_FLAG_EDIT_VALUE);
 	if (gGameConfig.startingLevel < 0) gGameConfig.startingLevel = tGameConfig::NUM_STARTING_LEVELS - 1;
@@ -352,12 +365,20 @@ void ShowPlayerListMenu() {
 			DrawMenuOption(ply.GetName(), MENU_FLAG_BLOCK_ABOVE);
 		}
 		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
+			pMenu->nLevel -= 2;
 		}
 	}
 }
 
 void ProcessNetClientMenu() {
+	if (NetGetNumConnectedPlayers() <= 0) {
+		DrawMenuOption("Connecting...", MENU_FLAG_BLOCK_ABOVE);
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+		return;
+	}
+
 	DrawMenuOption(aNetPlayers[0].slowPlayerData.inGame ? "Match in progress..." : "Waiting for host...", MENU_FLAG_BLOCK_ABOVE);
 	DrawMenuOption(std::format("Starting Level - {}", gGameConfig.GetStartingLevelName()).c_str(), MENU_FLAG_BLOCK_ABOVE);
 	DrawMenuOption(std::format("Randomizer - {}", gGameConfig.GetRandomizerTypeName()).c_str(), MENU_FLAG_BLOCK_ABOVE);
@@ -367,132 +388,55 @@ void ProcessNetClientMenu() {
 	if (auto tmp = DrawMenuOption("Options")) {
 		ProcessOptionsMenu();
 		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
+			pMenu->nLevel -= 2;
 		}
 	}
 	if (DrawMenuOption("Back")) {
-		nMenuLevel -= 2;
+		pMenu->nLevel -= 2;
 	}
 }
 
-void ProcessMainMenu() {
-	DrawBackgroundImage(0, 1);
+void ProcessMenuHead(bool mainMenu) {
+	pMenu = mainMenu ? &mainMenuState : &onlinePauseMenuState;
 
-	static auto logo = LoadTexture("logo.png");
+	if (mainMenu) {
+		DrawBackgroundImage(0, 1);
 
-	float fLogoSizeY = 0.33 * 0.34375;
-	float fLogoSizeX = 0.33 * GetAspectRatioInv();
-	float fLogoPosY = 0.2;
+		static auto logo = LoadTexture("logo.png");
 
-	float fLogoBGSizeY = fLogoSizeY + 0.01;
-	float fLogoBGSizeX = fLogoSizeX + 0.01 * GetAspectRatioInv();
+		float fLogoSizeY = 0.33 * 0.34375;
+		float fLogoSizeX = 0.33 * GetAspectRatioInv();
+		float fLogoPosY = 0.2;
 
-	DrawRectangle(0.5 - fLogoBGSizeX, 0.5 + fLogoBGSizeX, fLogoPosY - fLogoBGSizeY, fLogoPosY + fLogoBGSizeY, {0,0,0,127}, 0.01);
-	DrawRectangle(0.5 - fLogoSizeX, 0.5 + fLogoSizeX, fLogoPosY - fLogoSizeY, fLogoPosY + fLogoSizeY, {255,255,255,255}, 0, logo);
+		float fLogoBGSizeY = fLogoSizeY + 0.01;
+		float fLogoBGSizeX = fLogoSizeX + 0.01 * GetAspectRatioInv();
+
+		DrawRectangle(0.5 - fLogoBGSizeX, 0.5 + fLogoBGSizeX, fLogoPosY - fLogoBGSizeY, fLogoPosY + fLogoBGSizeY,
+					  {0, 0, 0, 127}, 0.01);
+		DrawRectangle(0.5 - fLogoSizeX, 0.5 + fLogoSizeX, fLogoPosY - fLogoSizeY, fLogoPosY + fLogoSizeY,
+					  {255, 255, 255, 255}, 0, logo);
+	}
+	else {
+		DrawRectangle(0, 1, 0, 1, {0,0,0,200});
+	}
 
 	aMenuOptionsToDraw.clear();
-	nTargetMenuLevel = 0;
-	memset(nNumMenuOptions, 0, sizeof(nNumMenuOptions));
+	pMenu->nTargetLevel = 0;
+	memset(pMenu->nNumOptions, 0, sizeof(pMenu->nNumOptions));
 	bBlockMenuBack = false;
 	bBlockMenuSelect = false;
 	fForceMenuWidth = 0.0;
 	nDrawPiecePreviews = -1;
+}
 
-	// yay hacks!~
-	if (nMenuLevel < 2) DisconnectNet();
+void ProcessMenuTail(bool mainMenu) {
+	float menuCenter = mainMenu ? 0.7 : 0.6;
 
-	if (auto tmp = DrawMenuOption("Single Player")) {
-		ShowGameSettings();
-		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
-		}
-	}
-	if (auto tmp = DrawMenuOption("Multiplayer")) {
-		if (auto tmp = DrawMenuOption("Host Game")) {
-			if (!NyaNet::IsServer() && !NetCreateGame()) nMenuLevel--;
-			ShowGameSettings();
-			ShowPlayerListMenu();
-			if (auto tmp = DrawMenuOption("Options")) {
-				ProcessOptionsMenu();
-				if (DrawMenuOption("Back")) {
-					nMenuLevel -= 2;
-				}
-			}
-			if (DrawMenuOption("Back")) {
-				nMenuLevel -= 2;
-			}
-		}
-		if (auto tmp = DrawMenuOption("Join Game")) {
-			static std::string ipAddrString = gGameConfig.ipAddress;
-
-			if (auto tmp = DrawMenuOption(std::format("IP Address {}", (ipAddrString + (bIsInInputMenu ? "..." : ""))).c_str(), MENU_FLAG_BLOCK_ABOVE)) {
-				bIsInInputMenu = true;
-			}
-
-			if (bIsInInputMenu) {
-				if (ipAddrString.length() < 63) ipAddrString += sKeyboardInput;
-				if (IsKeyJustPressed(VK_BACK) && !ipAddrString.empty()) ipAddrString.pop_back();
-			}
-
-			if (auto tmp = DrawMenuOption("Connect")) {
-				if (NyaNet::IsConnected()) {
-					ProcessNetClientMenu();
-				}
-				else {
-					ENetAddress address;
-					if (!enet_address_set_host_ip(&address, ipAddrString.c_str())) {
-						nNetGameAddress = address.host;
-						NetJoinGame();
-						strcpy_s(gGameConfig.ipAddress, 64, ipAddrString.c_str());
-					}
-				}
-
-				if (!NyaNet::IsConnected()) nMenuLevel--;
-			}
-
-			if (DrawMenuOption("Back")) {
-				nMenuLevel -= 2;
-			}
-		}
-		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
-		}
-	}
-	if (auto tmp = DrawMenuOption("Options")) {
-		ProcessOptionsMenu();
-		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
-		}
-	}
-	if (auto tmp = DrawMenuOption("Scores")) {
-		ProcessScoresMenu();
-		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
-		}
-	}
-	if (auto tmp = DrawMenuOption("About")) {
-		DrawMenuOption("Programming - gaycoderprincess", MENU_FLAG_BLOCK_ABOVE);
-		DrawMenuOption("Graphics Design - teddyator", MENU_FLAG_BLOCK_ABOVE);
-		DrawMenuOption("References Used:", MENU_FLAG_BLOCK_ABOVE);
-		if (DrawMenuOption("meatfighter.com/nintendotetrisai", MENU_FLAG_BLOCK_ABOVE)) {
-			ShellExecuteA(nullptr, nullptr, "https://meatfighter.com/nintendotetrisai", nullptr, nullptr , SW_SHOW );
-		}
-		if (DrawMenuOption("Back")) {
-			nMenuLevel -= 2;
-		}
-	}
-	if (DrawMenuOption("Quit")) {
-		ProgramOnExit();
-		exit(0);
-	}
-
-	//fMenuSize = 0.55 / (double)nNumMenuOptions[nMenuLevel];
-	//if (fMenuSize > 0.075) fMenuSize = 0.075;
-	//fMenuTop = 1 - fMenuSize * nNumMenuOptions[nMenuLevel];
-	fMenuSize = 1 / ((double)nNumMenuOptions[nMenuLevel] * 2);
+	fMenuSize = 1 / ((double)pMenu->nNumOptions[pMenu->nLevel] * 2);
 	if (fMenuSize > 0.075) fMenuSize = 0.075;
-	fMenuTop = 0.7 - (fMenuSize * nNumMenuOptions[nMenuLevel] * 0.5);
-	{
+	fMenuTop = menuCenter - (fMenuSize * pMenu->nNumOptions[pMenu->nLevel] * 0.5);
+
+	if (mainMenu) {
 		float menuMaxWidth = 0;
 		if (fForceMenuWidth != 0.0) menuMaxWidth = fForceMenuWidth;
 		else {
@@ -505,7 +449,7 @@ void ProcessMainMenu() {
 		}
 		float menuBgWidth = menuMaxWidth * 0.5 + 0.075 * GetAspectRatioInv();
 		float ySpacing = 0.05;
-		float ySize = (fMenuSize * (nNumMenuOptions[nMenuLevel] - 1)) + ySpacing;
+		float ySize = (fMenuSize * (pMenu->nNumOptions[pMenu->nLevel] - 1)) + ySpacing;
 		DrawRectangle(0.5 - menuBgWidth, 0.5 + menuBgWidth, fMenuTop - ySpacing, fMenuTop + ySize, {0,0,0,127}, 0.01);
 	}
 	if (nDrawPiecePreviews != -1) {
@@ -523,10 +467,10 @@ void ProcessMainMenu() {
 		string.XCenterAlign = true;
 		NyaDrawing::CNyaRGBA32 colBase = {255,255,255,255};
 		NyaDrawing::CNyaRGBA32 colSelected = {245,171,185,255};
-		string.SetColor(nSelectedMenuOption[nTargetMenuLevel] == 0 ? &colSelected : &colBase);
+		string.SetColor(pMenu->nSelectedOption[pMenu->nTargetLevel] == 0 ? &colSelected : &colBase);
 		DrawString(string, std::format("({}/{})", colors.paletteId[0] + 1, 64).c_str());
 		string.y += fMenuSize;
-		string.SetColor(nSelectedMenuOption[nTargetMenuLevel] == 1 ? &colSelected : &colBase);
+		string.SetColor(pMenu->nSelectedOption[pMenu->nTargetLevel] == 1 ? &colSelected : &colBase);
 		DrawString(string, std::format("({}/{})", colors.paletteId[1] + 1, 64).c_str());
 	}
 	for (auto& option : aMenuOptionsToDraw) {
@@ -537,26 +481,242 @@ void ProcessMainMenu() {
 		if (GetMenuAcceptInput()) bIsInInputMenu = false;
 	}
 	else {
-		if (GetMenuUp()) nSelectedMenuOption[nMenuLevel]--;
-		if (GetMenuDown()) nSelectedMenuOption[nMenuLevel]++;
-		if (!bBlockMenuBack && GetMenuBack() && nMenuLevel > 0) {
-			PlayGameSound(SOUND_ROTATE);
-			nMenuLevel--;
+		if (GetMenuUp()) pMenu->nSelectedOption[pMenu->nLevel]--;
+		if (GetMenuDown()) pMenu->nSelectedOption[pMenu->nLevel]++;
+		if (!bBlockMenuBack && GetMenuBack()) {
+			if (pMenu->nLevel > 0) {
+				PlayGameSound(SOUND_ROTATE);
+				pMenu->nLevel--;
+			}
+			else if (!mainMenu) {
+				bOnlinePauseMenu = false;
+				pMenu->nSelectedOption[0] = 0;
+			}
 		}
 		if (!bBlockMenuSelect && GetMenuSelect()) {
-			if (nMenuLevel != 1 || nSelectedMenuOption[0] != 0 || nSelectedMenuOption[1] != 0) PlayGameSound(SOUND_LOCK);
-			nMenuLevel++;
+			if (bOnlinePauseMenu || pMenu->nLevel != 1 || pMenu->nSelectedOption[0] != 0 || pMenu->nSelectedOption[1] != 0) PlayGameSound(SOUND_LOCK);
+			pMenu->nLevel++;
 		}
 
 		if (GetMenuUp() || GetMenuDown()) PlayGameSound(SOUND_MENUMOVE);
 	}
 
-	if (nMenuLevel < 0) nMenuLevel = 0;
-	for (int i = 0; i <= nMenuLevel; i++) {
-		if (nSelectedMenuOption[i] < 0) nSelectedMenuOption[i] = nNumMenuOptions[i] - 1;
-		if (nSelectedMenuOption[i] >= nNumMenuOptions[i]) nSelectedMenuOption[i] = 0;
+	if (pMenu->nLevel < 0) pMenu->nLevel = 0;
+	for (int i = 0; i <= pMenu->nLevel; i++) {
+		if (pMenu->nSelectedOption[i] < 0) pMenu->nSelectedOption[i] = pMenu->nNumOptions[i] - 1;
+		if (pMenu->nSelectedOption[i] >= pMenu->nNumOptions[i]) pMenu->nSelectedOption[i] = 0;
 	}
-	for (int i = nMenuLevel + 1; i < 8; i++) {
-		nSelectedMenuOption[i] = 0;
+	for (int i = pMenu->nLevel + 1; i < 8; i++) {
+		pMenu->nSelectedOption[i] = 0;
 	}
+
+	if (mainMenu) {
+		tNyaStringData string;
+		string.x = 1 - (0.01 * GetAspectRatioInv());
+		string.y = 1.025;
+		string.size = 0.05;
+		string.XRightAlign = true;
+		string.YBottomAlign = true;
+		string.SetColor(255, 255, 255, 255);
+		DrawString(string, "v2.20");
+	}
+}
+
+void ProcessMultiplayerMenu() {
+	if (auto tmp = DrawMenuOption("Host Game")) {
+		static std::string portString = gGameConfig.port;
+
+		if (auto tmp = DrawMenuOption(std::format("Port - {}", (portString + (bIsInInputMenu ? "..." : ""))).c_str(), MENU_FLAG_BLOCK_ABOVE)) {
+			bIsInInputMenu = true;
+		}
+
+		if (bIsInInputMenu) {
+			if (portString.length() < 63) portString += sKeyboardInput;
+			if (IsKeyJustPressed(VK_BACK) && !portString.empty()) portString.pop_back();
+		}
+
+		if (auto tmp = DrawMenuOption("Host")) {
+			if (NyaNet::IsServer()) {
+				ShowGameSettings();
+				ShowPlayerListMenu();
+				if (auto tmp = DrawMenuOption("Options")) {
+					ProcessOptionsMenu();
+					if (DrawMenuOption("Back")) {
+						pMenu->nLevel -= 2;
+					}
+				}
+				if (DrawMenuOption("Back")) {
+					pMenu->nLevel -= 2;
+				}
+			}
+			else {
+				strcpy_s(gGameConfig.port, 64, portString.c_str());
+				try {
+					nNetGamePort = 0;
+					nNetGamePort = std::stoi(portString);
+					if (!NetCreateGame()) pMenu->nLevel--;
+				}
+				catch (const std::invalid_argument& e) {
+					pMenu->nLevel--;
+				}
+				catch (const std::out_of_range& e) {
+					pMenu->nLevel--;
+				}
+			}
+
+		}
+
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (auto tmp = DrawMenuOption("Join Game")) {
+		static std::string ipAddrString = gGameConfig.ipAddress;
+		static std::string portString = gGameConfig.port;
+		static int inputMenuId = 0;
+
+		if (auto tmp = DrawMenuOption(std::format("IP Address - {}", (ipAddrString + (bIsInInputMenu && inputMenuId == 0 ? "..." : ""))).c_str(), MENU_FLAG_BLOCK_ABOVE)) {
+			bIsInInputMenu = true;
+			inputMenuId = 0;
+		}
+		if (auto tmp = DrawMenuOption(std::format("Port - {}", (portString + (bIsInInputMenu && inputMenuId == 1 ? "..." : ""))).c_str(), MENU_FLAG_BLOCK_ABOVE)) {
+			bIsInInputMenu = true;
+			inputMenuId = 1;
+		}
+
+		if (bIsInInputMenu) {
+			auto& str = inputMenuId == 0 ? ipAddrString : portString;
+			if (str.length() < 63) str += sKeyboardInput;
+			if (IsKeyJustPressed(VK_BACK) && !str.empty()) str.pop_back();
+		}
+
+		if (auto tmp = DrawMenuOption("Connect")) {
+			if (NyaNet::IsClient()) {
+				ProcessNetClientMenu();
+			}
+			else {
+				ENetAddress address;
+				if (!enet_address_set_host_ip(&address, ipAddrString.c_str())) {
+					strcpy_s(gGameConfig.ipAddress, 64, ipAddrString.c_str());
+					strcpy_s(gGameConfig.port, 64, portString.c_str());
+					try {
+						nNetGameAddress = address.host;
+						nNetGamePort = 0;
+						nNetGamePort = std::stoi(portString);
+						NetJoinGame();
+					}
+					catch (const std::invalid_argument& e) {
+						pMenu->nLevel--;
+					}
+					catch (const std::out_of_range& e) {
+						pMenu->nLevel--;
+					}
+				}
+			}
+
+			if (!NyaNet::IsConnected()) pMenu->nLevel--;
+		}
+
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+}
+
+void ProcessAboutMenu() {
+	DrawMenuOption("Programming - gaycoderprincess", MENU_FLAG_BLOCK_ABOVE);
+	DrawMenuOption("Graphics Design - teddyator", MENU_FLAG_BLOCK_ABOVE);
+	DrawMenuOption("References Used:", MENU_FLAG_BLOCK_ABOVE);
+	if (DrawMenuOption("meatfighter.com/nintendotetrisai", MENU_FLAG_BLOCK_ABOVE)) {
+		ShellExecuteA(nullptr, nullptr, "https://meatfighter.com/nintendotetrisai", nullptr, nullptr , SW_SHOW );
+	}
+}
+
+void ProcessMainMenu() {
+	ProcessMenuHead(true);
+
+	// yay hacks!~
+	if (pMenu->nLevel < 3) DisconnectNet();
+
+	if (auto tmp = DrawMenuOption("Single Player")) {
+		ShowGameSettings();
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (auto tmp = DrawMenuOption("Multiplayer")) {
+		ProcessMultiplayerMenu();
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (auto tmp = DrawMenuOption("Options")) {
+		ProcessOptionsMenu();
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (auto tmp = DrawMenuOption("Scores")) {
+		ProcessScoresMenu();
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (auto tmp = DrawMenuOption("About")) {
+		ProcessAboutMenu();
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (DrawMenuOption("Quit")) {
+		ProgramOnExit();
+		exit(0);
+	}
+
+	ProcessMenuTail(true);
+}
+
+void ExitOnlinePauseMenu() {
+	bOnlinePauseMenu = false;
+	pMenu->nLevel = 0;
+	pMenu->nSelectedOption[0] = 0;
+}
+
+void ProcessOnlinePauseMenu() {
+	ProcessMenuHead(false);
+
+	if (auto tmp = DrawMenuOption("Options")) {
+		ProcessOptionsMenu();
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (auto tmp = DrawMenuOption("About")) {
+		ProcessAboutMenu();
+		if (DrawMenuOption("Back")) {
+			pMenu->nLevel -= 2;
+		}
+	}
+	if (NyaNet::IsServer()) {
+		if (DrawMenuOption("Quit to Menu")) {
+			if (NyaNet::IsServer()) {
+				CNyaNetPacket<tEndGamePacket> packet;
+				packet.Send(true);
+			} else {
+				ShowEndgameScoreboard();
+			}
+			ExitOnlinePauseMenu();
+		}
+	}
+	if (NyaNet::IsClient()) {
+		if (DrawMenuOption("Disconnect")) {
+			DisconnectNet();
+			ExitOnlinePauseMenu();
+		}
+	}
+	if (DrawMenuOption("Back to Game")) {
+		ExitOnlinePauseMenu();
+	}
+
+	ProcessMenuTail(false);
 }

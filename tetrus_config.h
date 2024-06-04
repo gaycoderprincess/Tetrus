@@ -71,6 +71,7 @@ struct tGameConfig {
 	bool overlappingSounds;
 	bool nesInitialLevelClear;
 	char ipAddress[64];
+	char port[64];
 
 	tGameConfig();
 	static tColorSetup GetDefaultColorSetup(int level);

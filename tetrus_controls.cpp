@@ -2,7 +2,9 @@
 
 #include "nya_dx11_appbase.h"
 
+#include "tetrus_util.h"
 #include "tetrus_controls.h"
+#include "tetrus_menu.h"
 
 bool GetMenuPause() {
 	if (IsKeyJustPressed(VK_ESCAPE)) return true;
@@ -50,6 +52,7 @@ bool GetMenuRight() {
 
 bool GetMenuQuit() {
 	if (IsKeyJustPressed('Q')) return true;
+	if (IsPadKeyJustPressed(NYA_PAD_KEY_SELECT)) return true;
 	return false;
 }
 
@@ -69,6 +72,7 @@ bool GetMenuAcceptInput() {
 }
 
 bool CController::tControl::IsPressed() const {
+	if (bOnlinePauseMenu) return false;
 	if (keyId <= 0) return false;
 
 	if (controller == -1) return IsKeyPressed(keyId);
@@ -76,6 +80,7 @@ bool CController::tControl::IsPressed() const {
 }
 
 bool CController::tControl::IsJustPressed() const {
+	if (bOnlinePauseMenu) return false;
 	if (keyId <= 0) return false;
 
 	if (controller == -1) return IsKeyJustPressed(keyId);
@@ -113,6 +118,7 @@ CController::CController(int playerId) {
 			aControls[i].controller = -1;
 			aControls[i].keyId = gP1Defaults[i];
 		}
+		rumblePad = -1;
 	}
 	else {
 		for (int i = 0; i < NUM_CONTROLS; i++) {
@@ -120,6 +126,7 @@ CController::CController(int playerId) {
 			aControls[i].controller = playerId - 1;
 			aControls[i].keyId = gPadDefaults[i];
 		}
+		rumblePad = playerId - 1;
 	}
 }
 
@@ -156,3 +163,33 @@ const char* CController::GetControlName(int id) {
 }
 
 CController aPlayerControls[4] = {CController(0), CController(1), CController(2), CController(3)};
+
+class CControllerRumble {
+public:
+	int strength = 0;
+	double timeLeft = 0;
+
+	void Process(int padId) {
+		XINPUT_VIBRATION vibration;
+		memset(&vibration, 0, sizeof(vibration));
+		if (timeLeft > 0) {
+			timeLeft -= gGameTimer.fDeltaTime;
+			vibration.wLeftMotorSpeed = strength;
+			vibration.wRightMotorSpeed = strength;
+		}
+		XInputSetState_Dynamic(padId, &vibration);
+	}
+} aControllerRumble[XUSER_MAX_COUNT];
+
+void AddRumble(int padId, int strength, double time) {
+	if (padId < 0) return;
+	if (padId >= XUSER_MAX_COUNT) return;
+	aControllerRumble[padId].strength = strength;
+	aControllerRumble[padId].timeLeft = time;
+}
+
+void ProcessRumble() {
+	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
+		aControllerRumble[i].Process(i);
+	}
+}

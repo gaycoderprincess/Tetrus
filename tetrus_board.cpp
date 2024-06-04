@@ -4,6 +4,9 @@
 #include "tetrus_config.h"
 #include "tetrus_audio.h"
 #include "tetrus_board.h"
+#include "tetrus_controls.h"
+#include "tetrus_piece.h"
+#include "tetrus_player.h"
 
 void DrawBlock(float x, float y, float scale, NyaDrawing::CNyaRGBA32 rgb, NyaDrawing::CNyaRGBA32 textureRgb, bool useAltTexture) {
 	if (rgb.a <= 0) return;
@@ -255,6 +258,13 @@ void CBoard::Process() {
 			if (int num = LineClearCheck()) {
 				state = STATE_LINE_CLEARING;
 				PlayGameSound(num >= 4 ? SOUND_TETRIS : SOUND_LINE);
+
+				for (auto& ply : aPlayers) {
+					if (ply->gameOver) continue;
+					if (ply->board != this) continue;
+
+					AddRumble(aPlayerControls[ply->playerId].rumblePad, num >= 4 ? 65535 : 32767, 0.75);
+				}
 			}
 		}
 	}
@@ -298,7 +308,7 @@ void CBoard::Process() {
 	if (gGameState == STATE_REPLAY_VIEW || gGameState == STATE_REPLAY_PAUSED) {
 		string.x = BoardToScreenX(extentsX * 0.5);
 		string.y = BoardToScreenY(extentsY + 2);
-		DrawString(string, "Q - Quit to Main Menu");
+		DrawString(string, "Q / Select - Quit to Main Menu");
 	}
 
 	justUpdated = false;

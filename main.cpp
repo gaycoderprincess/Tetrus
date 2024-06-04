@@ -22,25 +22,24 @@ void ProcessGame() {
 
 	bool anyPlayerAlive = false;
 
-	for (auto& board: aBoards) {
+	for (auto &board: aBoards) {
 		board->DrawBackground();
 	}
 
 	if (NyaNet::IsConnected() && aPlayers[0]->gameOver) {
 		ProcessNetSpectate();
-	}
-	else {
-		for (auto& ply: aPlayers) {
+	} else {
+		for (auto &ply: aPlayers) {
 			ply->Process();
 			if (!ply->gameOver) anyPlayerAlive = true;
 		}
-		for (auto& board: aBoards) {
+		for (auto &board: aBoards) {
 			board->Process();
 		}
 	}
 
 	if (NyaNet::IsConnected()) {
-		for (auto& ply : aNetPlayers) {
+		for (auto &ply: aNetPlayers) {
 			if (!ply.connected) continue;
 
 			if (ply.slowPlayerData.alive) anyPlayerAlive = true;
@@ -49,7 +48,7 @@ void ProcessGame() {
 	}
 
 	if (gGameState == STATE_PAUSED || gGameState == STATE_REPLAY_PAUSED) {
-		DrawRectangle(0, 1, 0, 1, {0,0,0,127});
+		DrawRectangle(0, 1, 0, 1, {0, 0, 0, 127});
 
 		tNyaStringData string;
 		string.x = 0.5;
@@ -64,7 +63,7 @@ void ProcessGame() {
 		// only do the Q to quit code if it's not a replay!
 		if (gGameState == STATE_PAUSED) {
 			string.y += 0.066 * 2;
-			DrawString(string, "Q - Quit to Main Menu");
+			DrawString(string, "Q / Select - Quit to Main Menu");
 
 			if (GetMenuQuit()) {
 				gGameState = STATE_MAIN_MENU;
@@ -79,16 +78,14 @@ void ProcessGame() {
 			if (NyaNet::IsServer()) {
 				CNyaNetPacket<tEndGamePacket> packet;
 				packet.Send(true);
-			}
-			else {
+			} else {
 				ShowEndgameScoreboard();
 			}
-		}
-		else gGameState = STATE_MAIN_MENU;
+		} else gGameState = STATE_MAIN_MENU;
 	}
 	if (!NyaNet::IsConnected() && gGameState != STATE_REPLAY_VIEW && anyPlayerAlive && GetMenuPause()) {
 		gGameState = gGameState == STATE_PLAYING ? STATE_PAUSED : STATE_PLAYING;
-		for (auto player : aPlayers) {
+		for (auto player: aPlayers) {
 			player->recordingReplay->AddEvent(gGameState == STATE_PLAYING ? REPLAY_EVENT_UNPAUSE : REPLAY_EVENT_PAUSE);
 		}
 		if (gGameState == STATE_PAUSED) PlayGameSound(SOUND_PAUSE);
@@ -97,6 +94,13 @@ void ProcessGame() {
 	if ((gGameState == STATE_REPLAY_VIEW || gGameState == STATE_REPLAY_PAUSED) && GetMenuQuit()) {
 		gGameState = STATE_SCOREBOARD_VIEW;
 		return;
+	}
+
+	if (NyaNet::IsConnected()) {
+		if (bOnlinePauseMenu) {
+			ProcessOnlinePauseMenu();
+		}
+		else if (GetMenuPause()) bOnlinePauseMenu = true;
 	}
 }
 
@@ -145,6 +149,7 @@ void ProgramLoop() {
 
 	ProcessNet();
 	ProcessSoundCache();
+	ProcessRumble();
 
 	CommonMain();
 }

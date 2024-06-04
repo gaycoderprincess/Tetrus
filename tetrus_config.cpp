@@ -56,6 +56,8 @@ tGameConfig::tGameConfig() {
 	nesInitialLevelClear = true;
 	memset(ipAddress, 0, sizeof(ipAddress));
 	strcpy_s(ipAddress, 64, "127.0.0.1");
+	memset(port, 0, sizeof(port));
+	strcpy_s(port, 64, "9803");
 }
 
 bool tGameConfig::IsCoopMode() const {

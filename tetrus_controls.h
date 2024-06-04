@@ -37,6 +37,7 @@ public:
 		[[nodiscard]] bool IsBound() const;
 		[[nodiscard]] const char* GetKeyName() const;
 	} aControls[NUM_CONTROLS];
+	int rumblePad;
 
 	constexpr static const int gP1Defaults[NUM_CONTROLS] = {
 			'A',
@@ -69,4 +70,7 @@ public:
 	static const char* GetControlName(int id);
 };
 extern CController aPlayerControls[4];
+
+void AddRumble(int padId, int strength, double time);
+void ProcessRumble();
 #endif

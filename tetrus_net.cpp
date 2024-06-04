@@ -9,6 +9,7 @@
 #include "tetrus_net.h"
 
 uint32_t nNetGameAddress = 0;
+uint16_t nNetGamePort = 9803;
 int nSpectatePlayer = 0;
 CNetGameSettings gNetGameSettings;
 CNetPlayer aNetPlayers[NyaNet::nMaxPossiblePlayers];
@@ -138,10 +139,11 @@ void NetPacketCallback(void* data, size_t len, NyaNet::NyaNetHandle handle) {
 
 bool NetCreateGame() {
 	if (NyaNet::IsServer()) return true;
+	if (!nNetGamePort) return false;
 
 	NyaNet::Disconnect();
 	ResetNetPlayers();
-	if (!NyaNet::Host(9803, NetStatusUpdateCallback, NetPacketCallback)) {
+	if (!NyaNet::Host(nNetGamePort, NetStatusUpdateCallback, NetPacketCallback)) {
 		DisconnectNet();
 		return false;
 	}
@@ -151,10 +153,11 @@ bool NetCreateGame() {
 
 bool NetJoinGame() {
 	if (NyaNet::IsClient()) return true;
+	if (!nNetGamePort) return false;
 
 	NyaNet::Disconnect();
 	ResetNetPlayers();
-	if (!NyaNet::Connect(nNetGameAddress, 9803, NetStatusUpdateCallback, NetPacketCallback)) {
+	if (!NyaNet::Connect(nNetGameAddress, nNetGamePort, NetStatusUpdateCallback, NetPacketCallback)) {
 		DisconnectNet();
 		return false;
 	}
@@ -201,6 +204,8 @@ void CNetSlowPlayerData::Fill() {
 }
 
 void ProcessNet() {
+	if (gGameState != STATE_PLAYING || !NyaNet::IsConnected()) bOnlinePauseMenu = false;
+
 	if (!NyaNet::IsConnected()) return;
 
 	NyaNet::Process();
@@ -355,10 +360,17 @@ void ProcessNetScoreboards() {
 
 	float maxWidth = 0;
 
+	const float top = 0.1;
+	const float bottom = 0.9;
+	float size = 0.03;
+	while (top + (scoreboard.size() * size) > bottom) {
+		size *= 0.9;
+	}
+
 	tNyaStringData string;
 	string.x = 0.1 * GetAspectRatioInv();
-	string.y = 0.1;
-	string.size = 0.03;
+	string.y = top;
+	string.size = size;
 	string.topLevel = true;
 
 	for (auto& ply : scoreboard) {
@@ -368,11 +380,11 @@ void ProcessNetScoreboards() {
 		if (ply.alive) string.SetColor(255, 255, 255, 255);
 		else string.SetColor(255, 0, 0, 255);
 		DrawString(string, str.c_str());
-		string.y += 0.03;
+		string.y += size;
 	}
 
 	float bgSpacing = 0.025 * GetAspectRatioInv();
 	float bgWidth = maxWidth + bgSpacing;
 	float ySpacing = 0.025;
-	DrawRectangle(string.x - bgSpacing, string.x + bgWidth, 0.1 - ySpacing, string.y - 0.03 + ySpacing, {0,0,0,127}, 0.01);
+	DrawRectangle(string.x - bgSpacing, string.x + bgWidth, top - ySpacing, string.y - 0.03 + ySpacing, {0,0,0,127}, 0.01);
 }

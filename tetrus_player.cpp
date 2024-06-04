@@ -300,7 +300,10 @@ void CPlayer::Place() {
 
 	bool lineClearCheck = board->LineClearCheck();
 	NextPiece(!lineClearCheck);
-	if (!lineClearCheck) PlayGameSound(SOUND_LOCK);
+	if (!lineClearCheck) {
+		PlayGameSound(SOUND_LOCK);
+		AddRumble(aPlayerControls[playerId].rumblePad, 16383, 0.25);
+	}
 }
 
 void CPlayer::ProcessDAS() {
