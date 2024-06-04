@@ -1,3 +1,6 @@
+#ifndef TETRUS_CONTROLS_H
+#define TETRUS_CONTROLS_H
+
 bool GetMenuPause();
 bool GetMenuBack(bool countBackspace = true);
 bool GetMenuSelect();
@@ -7,7 +10,7 @@ bool GetMenuLeft();
 bool GetMenuRight();
 bool GetMenuQuit();
 bool GetMenuGameOverQuit();
-bool GetMenuAcceptName();
+bool GetMenuAcceptInput();
 
 class CController {
 public:
@@ -66,3 +69,4 @@ public:
 	static const char* GetControlName(int id);
 };
 extern CController aPlayerControls[4];
+#endif

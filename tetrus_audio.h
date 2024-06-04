@@ -1,3 +1,6 @@
+#ifndef TETRUS_AUDIO_H
+#define TETRUS_AUDIO_H
+
 enum eSoundId {
 	SOUND_MOVE,
 	SOUND_ROTATE,
@@ -11,3 +14,4 @@ enum eSoundId {
 };
 void PlayGameSound(int soundId);
 void ProcessSoundCache();
+#endif

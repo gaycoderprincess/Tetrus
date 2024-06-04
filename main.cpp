@@ -1,5 +1,3 @@
-#include <windows.h>
-
 #include "nya_dx11_appbase.h"
 
 #include "tetrus_util.h"
@@ -13,6 +11,7 @@
 #include "tetrus_menu.h"
 #include "tetrus_replay.h"
 #include "tetrus_scoreboard.h"
+#include "tetrus_net.h"
 
 void ProcessGame() {
 	DrawBackgroundImage(0, 1);
@@ -23,15 +22,30 @@ void ProcessGame() {
 
 	bool anyPlayerAlive = false;
 
-	for (auto& board : aBoards) {
+	for (auto& board: aBoards) {
 		board->DrawBackground();
 	}
-	for (auto& ply : aPlayers) {
-		ply->Process();
-		if (!ply->gameOver) anyPlayerAlive = true;
+
+	if (NyaNet::IsConnected() && aPlayers[0]->gameOver) {
+		ProcessNetSpectate();
 	}
-	for (auto& board : aBoards) {
-		board->Process();
+	else {
+		for (auto& ply: aPlayers) {
+			ply->Process();
+			if (!ply->gameOver) anyPlayerAlive = true;
+		}
+		for (auto& board: aBoards) {
+			board->Process();
+		}
+	}
+
+	if (NyaNet::IsConnected()) {
+		for (auto& ply : aNetPlayers) {
+			if (!ply.connected) continue;
+
+			if (ply.slowPlayerData.alive) anyPlayerAlive = true;
+		}
+		ProcessNetScoreboards();
 	}
 
 	if (gGameState == STATE_PAUSED || gGameState == STATE_REPLAY_PAUSED) {
@@ -59,22 +73,20 @@ void ProcessGame() {
 		}
 	}
 
-	if (!anyPlayerAlive && GetMenuGameOverQuit()) {
+	if (!anyPlayerAlive && GetMenuGameOverQuit() && !NyaNet::IsClient()) {
 		if (gGameState == STATE_REPLAY_VIEW) gGameState = STATE_SCOREBOARD_VIEW;
 		else if (!gGameConfig.IsCoopMode() && gGameState != STATE_REPLAY_VIEW) {
-			gGameState = STATE_SCOREBOARD_VIEW;
-			Scoreboard::ClearHighlight();
-			Scoreboard::SetFile(gGameConfig.startingLevel, gGameConfig.randomizerType);
-			for (auto player: aPlayers) {
-				if (player->board->linesCleared == 0) continue;
-				Scoreboard::AddScore(player->board->score, player->board->linesCleared, player->GetPieceRandomizerSeed(), gGameConfig.playerName[player->playerId], player->recordingReplay);
+			if (NyaNet::IsServer()) {
+				CNyaNetPacket<tEndGamePacket> packet;
+				packet.Send(true);
 			}
-			Scoreboard::Save();
-			Scoreboard::isEndGameScoreboard = true;
+			else {
+				ShowEndgameScoreboard();
+			}
 		}
 		else gGameState = STATE_MAIN_MENU;
 	}
-	if (gGameState != STATE_REPLAY_VIEW && anyPlayerAlive && GetMenuPause()) {
+	if (!NyaNet::IsConnected() && gGameState != STATE_REPLAY_VIEW && anyPlayerAlive && GetMenuPause()) {
 		gGameState = gGameState == STATE_PLAYING ? STATE_PAUSED : STATE_PLAYING;
 		for (auto player : aPlayers) {
 			player->recordingReplay->AddEvent(gGameState == STATE_PLAYING ? REPLAY_EVENT_UNPAUSE : REPLAY_EVENT_PAUSE);
@@ -131,6 +143,7 @@ void ProgramLoop() {
 			break;
 	}
 
+	ProcessNet();
 	ProcessSoundCache();
 
 	CommonMain();

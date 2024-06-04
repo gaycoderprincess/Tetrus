@@ -7,6 +7,7 @@
 #include "tetrus_controls.h"
 #include "tetrus_piece.h"
 #include "tetrus_player.h"
+#include "tetrus_board.h"
 #include "tetrus_replay.h"
 #include "tetrus_scoreboard.h"
 
@@ -16,6 +17,7 @@ namespace Scoreboard {
 	int randomizerType;
 	int startingLevelId;
 	int selectedReplay;
+	bool nesInitialLevelClear;
 	bool isEndGameScoreboard;
 
 	tScore::tScore() {
@@ -153,6 +155,7 @@ namespace Scoreboard {
 					gGameConfig.gameType = tGameConfig::TYPE_1PLAYER;
 					gGameConfig.randomizerType = randomizerType;
 					gGameConfig.startingLevel = startingLevelId;
+					gGameConfig.nesInitialLevelClear = nesInitialLevelClear;
 					ResetAllPlayers();
 					aPlayers[0]->SetPieceRandomizer(score.saveData.randomSeed);
 					aPlayers[0]->ReInit(false);
@@ -189,9 +192,10 @@ namespace Scoreboard {
 		}
 	}
 
-	void SetFile(int startingLevel, int randomizer) {
+	void SetFile(int startingLevel, int randomizer, bool nesLevels) {
 		startingLevelId = startingLevel;
 		randomizerType = randomizer;
+		nesInitialLevelClear = nesLevels;
 		isEndGameScoreboard = false;
 
 		std::string path = "score_" + std::to_string(tGameConfig::startingLevelIds[startingLevel]);
@@ -208,6 +212,19 @@ namespace Scoreboard {
 			default:
 				break;
 		}
+		if (nesInitialLevelClear && startingLevel > 0) path += "_neslvl";
 		SetFile(path.c_str());
 	}
+}
+
+void ShowEndgameScoreboard() {
+	gGameState = STATE_SCOREBOARD_VIEW;
+	Scoreboard::ClearHighlight();
+	Scoreboard::SetFile(gGameConfig.startingLevel, gGameConfig.randomizerType, gGameConfig.nesInitialLevelClear);
+	for (auto player: aPlayers) {
+		if (player->board->linesCleared == 0) continue;
+		Scoreboard::AddScore(player->board->score, player->board->linesCleared, player->GetPieceRandomizerSeed(), gGameConfig.playerName[player->playerId], player->recordingReplay);
+	}
+	Scoreboard::Save();
+	Scoreboard::isEndGameScoreboard = true;
 }

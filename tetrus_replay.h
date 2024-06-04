@@ -1,3 +1,6 @@
+#ifndef TETRUS_REPLAY_H
+#define TETRUS_REPLAY_H
+
 enum eReplayEvent {
 	MIN_REPLAY_EVENT = 0,
 	REPLAY_EVENT_MOVE_LEFT = MIN_REPLAY_EVENT,
@@ -33,3 +36,4 @@ extern CReplay gPlaybackReplay;
 
 void StartReplay(void* data, size_t dataSize, CPlayer* player);
 void ProcessReplay();
+#endif

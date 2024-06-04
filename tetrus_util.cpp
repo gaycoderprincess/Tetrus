@@ -1,9 +1,10 @@
 #include <ctime>
 #include <random>
+#include <fstream>
 
 #include "nya_dx11_appbase.h"
 
-#include "tetrus_config.h"
+#include "tetrus_util.h"
 
 int GetRandom(int max) {
 	static auto rng = std::mt19937(time(nullptr));
@@ -141,6 +142,13 @@ void DrawBackgroundImage(float left, float right) {
 	static auto background = LoadTexture("background.png");
 	if (background) DrawRectangle(left, right, 0, 1, {225,225,225,255}, 0, background);
 	else DrawRectangle(left, right, 0, 1, {0, 0, 0,255});
+}
+
+void LogString(const std::string& str) {
+	static auto file = std::ofstream("nya.log");
+	file << str;
+	file << "\n";
+	file.flush();
 }
 
 CNyaTimer gGameTimer = CNyaTimer(1.0 / 2.0);

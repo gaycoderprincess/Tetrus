@@ -1,3 +1,6 @@
+#ifndef TETRUS_PIECE_H
+#define TETRUS_PIECE_H
+
 class CBoard;
 
 struct tPieceType {
@@ -12,3 +15,4 @@ struct tPieceType {
 	std::vector<tRotation> rotations;
 };
 extern std::vector<tPieceType> aPieceTypes;
+#endif

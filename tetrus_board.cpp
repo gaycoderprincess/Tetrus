@@ -30,7 +30,8 @@ CBoard::CBoard(int sizeX, int sizeY) {
 	lineClearTimer = 0;
 	linesCleared = 0;
 	lineClearCombo = 0;
-	level = gGameConfig.GetStartingLevel();
+	startingLevel = gGameConfig.GetStartingLevel();
+	level = startingLevel;
 	score = 0;
 	data = new tPlacedPiece[extentsX * extentsY];
 	isCoopBoard = sizeX == gBoardSizeX * 2;
@@ -52,8 +53,11 @@ void CBoard::ReInit() {
 	lineClearTimer = 0;
 	linesCleared = 0;
 	lineClearCombo = 0;
-	level = gGameConfig.GetStartingLevel();
+	startingLevel = gGameConfig.GetStartingLevel();
+	level = startingLevel;
 	score = 0;
+	prideFlags = gGameConfig.prideFlags;
+	isRemoteBoard = false;
 }
 
 void CBoard::ReInitSettings() {
@@ -147,6 +151,24 @@ void CBoard::MoveLine(int yFrom, int yTo) {
 	}
 }
 
+bool CBoard::EnoughLinesClearedForLevel() const {
+	if (startingLevel <= 0) return true;
+	if (!gGameConfig.nesInitialLevelClear) return true;
+
+	switch (startingLevel) {
+		case 9:
+			if (linesCleared < 100) return false;
+		case 18:
+			if (linesCleared < 130) return false;
+		case 19:
+			if (linesCleared < 140) return false;
+		case 29:
+			if (linesCleared < 200) return false;
+		default:
+			return true;
+	}
+}
+
 void CBoard::ClearLine(int y) {
 	for (int i = 0; i < extentsX; i++) {
 		GetPieceAt(i, y)->exists = false;
@@ -160,7 +182,9 @@ void CBoard::ClearLine(int y) {
 	linesCleared++;
 	lineClearCombo++;
 
-	if (linesCleared % 10 == 0) level++;
+	if (linesCleared % 10 == 0 && EnoughLinesClearedForLevel()) {
+		level++;
+	}
 }
 
 void CBoard::ClearFullLines() {
@@ -192,23 +216,25 @@ void CBoard::ClearFullLines() {
 	lineClearCombo = 0;
 }
 
-NyaDrawing::CNyaRGBA32 CBoard::GetColor(int id) const {
-	if (gGameConfig.prideFlags) {
-		auto colors = tGameConfig::GetPrideFlagColor(gGameConfig.prideFlagColors[level % 10]);
-		return colors[id % colors.size()];
-	}
+tGameConfig::tColorSetup* CBoard::GetColorSetup() {
+	if (isRemoteBoard) return &remoteBoardColorSetup;
 
 	int wrappedLevel = level;
 	if (wrappedLevel < 138) wrappedLevel %= sizeof(gGameConfig.pieceColors) / sizeof(gGameConfig.pieceColors[0]);
-	return NESPaletteToRGB(gGameConfig.pieceColors[wrappedLevel].paletteId[id]);
+	return &gGameConfig.pieceColors[wrappedLevel];
 }
 
-NyaDrawing::CNyaRGBA32 CBoard::GetTextureColor() const {
-	if (gGameConfig.prideFlags) return {255,255,255,255};
+NyaDrawing::CNyaRGBA32 CBoard::GetColor(int id) {
+	if (prideFlags) {
+		auto colors = tGameConfig::GetPrideFlagColor(isRemoteBoard ? remoteBoardPrideFlag : gGameConfig.prideFlagColors[level % 10]);
+		return colors[id % colors.size()];
+	}
+	return NESPaletteToRGB(GetColorSetup()->paletteId[id]);
+}
 
-	int wrappedLevel = level;
-	if (wrappedLevel < 138) wrappedLevel %= sizeof(gGameConfig.pieceColors) / sizeof(gGameConfig.pieceColors[0]);
-	return NESPaletteToRGB(gGameConfig.pieceColors[wrappedLevel].backgroundPaletteId[1]);
+NyaDrawing::CNyaRGBA32 CBoard::GetTextureColor() {
+	if (prideFlags) return {255,255,255,255};
+	return NESPaletteToRGB(GetColorSetup()->backgroundPaletteId[1]);
 }
 
 bool CBoard::AllowPlayerControl() const {
@@ -216,7 +242,7 @@ bool CBoard::AllowPlayerControl() const {
 }
 
 void CBoard::Process() {
-	if (gGameState != STATE_PAUSED && gGameState != STATE_REPLAY_PAUSED) {
+	if (gGameState != STATE_PAUSED && gGameState != STATE_REPLAY_PAUSED && !isRemoteBoard) {
 		if (state == STATE_LINE_CLEARING) {
 			lineClearTimer += gGameTimer.fDeltaTime;
 			if (isCoopBoard) lineClearTimer += gGameTimer.fDeltaTime; // clear 2x faster in coop since the board is wider
@@ -283,3 +309,4 @@ CBoard gPlayer3Board(gBoardSizeX, gBoardSizeY);
 CBoard gPlayer4Board(gBoardSizeX, gBoardSizeY);
 CBoard gCoopTeam1Board(gBoardSizeX * 2, gBoardSizeY);
 CBoard gCoopTeam2Board(gBoardSizeX * 2, gBoardSizeY);
+CBoard gMPSpectateBoard(gBoardSizeX, gBoardSizeY);

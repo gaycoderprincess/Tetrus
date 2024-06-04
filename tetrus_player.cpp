@@ -9,6 +9,8 @@
 #include "tetrus_player.h"
 #include "tetrus_replay.h"
 
+int gForcedRNGValue = -1;
+
 CPlayer::CPlayer(int playerId, CBoard* board) {
 	this->board = board;
 	this->playerId = playerId;
@@ -147,7 +149,7 @@ void CPlayer::SetPieceRandomizer(int seed) {
 void CPlayer::ResetPieceRandomizer() {
 	auto randSeed = time(nullptr);
 	if (!gGameConfig.randSameForAllPlayers) randSeed += playerId;
-	SetPieceRandomizer(randSeed);
+	SetPieceRandomizer(gForcedRNGValue >= 0 ? gForcedRNGValue : randSeed);
 }
 
 int CPlayer::GetPieceRandomizerSeed() const {
@@ -157,12 +159,10 @@ int CPlayer::GetPieceRandomizerSeed() const {
 int CPlayer::GenerateNextPieceType() {
 	if (gGameConfig.randomizerType == tGameConfig::RANDOMIZER_MODERN) {
 		std::vector<int> aAvailableTypes;
-		for (int i = 0; i < aPieceTypes.size(); i++)
-		{
+		for (int i = 0; i < aPieceTypes.size(); i++) {
 			if (!pieceAlreadyPicked[i]) aAvailableTypes.push_back(i);
 		}
-		if (aAvailableTypes.empty())
-		{
+		if (aAvailableTypes.empty()) {
 			memset(pieceAlreadyPicked, 0, aPieceTypes.size());
 			return GenerateNextPieceType();
 		}
@@ -211,7 +211,11 @@ void CPlayer::DrawDropPreview() const {
 }
 
 void CPlayer::Draw() const {
+	if (pieceType < 0 || pieceType >= aPieceTypes.size()) return;
+	if (nextPieceType < 0 || nextPieceType >= aPieceTypes.size()) return;
+
 	bool useCurrentPieceAsPreview = (board->state == CBoard::STATE_LINE_CLEARING && !board->isCoopBoard) || drawCurrentAsPreviewNextFrame;
+	if (isRemotePlayer) useCurrentPieceAsPreview = false;
 
 	float previewX = board->extentsX + 3;
 	float previewY = board->extentsY * 0.5;
@@ -227,7 +231,7 @@ void CPlayer::Draw() const {
 		GetRotatedPiece()->Draw(board, previewX, previewY, colorIdLast, 255, false, altTextureLast);
 	}
 	else {
-		if (gGameConfig.dropPreviewOn[playerId]) DrawDropPreview();
+		if (dropPreviewOn) DrawDropPreview();
 		GetPreviewPiece()->Draw(board, previewX, previewY, colorId, 255, false, altTexture);
 		GetRotatedPiece()->Draw(board, posX, posY, colorId, 255, true, altTexture);
 	}
@@ -356,6 +360,8 @@ void CPlayer::ReInit(bool reInitRNG) {
 	initialGravity = true;
 	gameOver = false;
 	drawCurrentAsPreviewNextFrame = false;
+	strcpy_s(playerName, 24, gGameConfig.playerName[playerId]);
+	dropPreviewOn = gGameConfig.dropPreviewOn[playerId];
 }
 
 bool CPlayer::MoveDown() {
@@ -370,13 +376,13 @@ bool CPlayer::MoveDown() {
 }
 
 void CPlayer::Process() {
-	if (aPlayers.size() > 1) {
+	if (aPlayers.size() > 1 || isRemotePlayer) {
 		tNyaStringData string;
 		string.x = board->BoardToScreenX((GetBoardXMin() + GetBoardXMax()) * 0.5);
 		string.y = board->BoardToScreenY(-2.75);
 		string.size = 0.05;
 		string.XCenterAlign = true;
-		DrawString(string, gGameConfig.playerName[playerId]);
+		DrawString(string, playerName);
 	}
 	else {
 		DrawStatistics();
@@ -402,7 +408,7 @@ void CPlayer::Process() {
 		}
 	}
 
-	if (gGameState == STATE_REPLAY_VIEW || gGameState == STATE_REPLAY_PAUSED) {
+	if (gGameState == STATE_REPLAY_VIEW || gGameState == STATE_REPLAY_PAUSED || isRemotePlayer) {
 		Draw();
 		drawCurrentAsPreviewNextFrame = false;
 		return;
@@ -457,6 +463,11 @@ CPlayer gCoopPlayer1 = CPlayer(0, &gCoopTeam1Board);
 CPlayer gCoopPlayer2 = CPlayer(1, &gCoopTeam1Board);
 CPlayer gCoopPlayer3 = CPlayer(2, &gCoopTeam2Board);
 CPlayer gCoopPlayer4 = CPlayer(3, &gCoopTeam2Board);
+CPlayer gMPSpectatePlayer = CPlayer(0, &gMPSpectateBoard);
+
+CPlayer* GetMPSpectatePlayer() {
+	return &gMPSpectatePlayer;
+}
 
 std::vector<CPlayer*> aPlayers;
 std::vector<CBoard*> aBoards;

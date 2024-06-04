@@ -1,3 +1,6 @@
+#ifndef TETRUS_CONFIG_H
+#define TETRUS_CONFIG_H
+
 enum eGameState {
 	STATE_MAIN_MENU,
 	STATE_PLAYING,
@@ -66,6 +69,8 @@ struct tGameConfig {
 	bool randSameForAllPlayers;
 	char prideFlagColors[10];
 	bool overlappingSounds;
+	bool nesInitialLevelClear;
+	char ipAddress[64];
 
 	tGameConfig();
 	static tColorSetup GetDefaultColorSetup(int level);
@@ -81,3 +86,4 @@ struct tGameConfig {
 	[[nodiscard]] static std::vector<NyaDrawing::CNyaRGBA32> GetPrideFlagColor(int type);
 };
 extern tGameConfig gGameConfig;
+#endif

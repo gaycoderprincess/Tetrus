@@ -1,3 +1,6 @@
+#ifndef TETRUS_SCOREBOARD_H
+#define TETRUS_SCOREBOARD_H
+
 namespace Scoreboard {
 	struct tScore {
 		struct tSaveable {
@@ -27,5 +30,8 @@ namespace Scoreboard {
 	void AddScore(int score, int lines, int randomSeed, const char* playerName, CReplay* replay);
 	void Draw(bool showEmpty);
 	void SetFile(const char* path);
-	void SetFile(int startingLevel, int randomizer);
+	void SetFile(int startingLevel, int randomizer, bool nesLevels);
 };
+
+void ShowEndgameScoreboard();
+#endif

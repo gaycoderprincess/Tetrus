@@ -53,6 +53,9 @@ tGameConfig::tGameConfig() {
 	prideFlagColors[8] = PRIDE_FLAG_TRANS;
 	prideFlagColors[9] = PRIDE_FLAG_TRANS;
 	overlappingSounds = true;
+	nesInitialLevelClear = true;
+	memset(ipAddress, 0, sizeof(ipAddress));
+	strcpy_s(ipAddress, 64, "127.0.0.1");
 }
 
 bool tGameConfig::IsCoopMode() const {

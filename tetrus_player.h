@@ -1,3 +1,6 @@
+#ifndef TETRUS_PLAYER_H
+#define TETRUS_PLAYER_H
+
 #include <random>
 
 class CReplay;
@@ -31,6 +34,9 @@ public:
 	std::mt19937 pieceRNG;
 	CReplay* recordingReplay;
 	bool drawCurrentAsPreviewNextFrame;
+	bool isRemotePlayer;
+	char playerName[24];
+	bool dropPreviewOn;
 
 	CPlayer(int playerId, CBoard* board);
 	[[nodiscard]] double GetGravity() const;
@@ -65,5 +71,8 @@ public:
 
 extern std::vector<CPlayer*> aPlayers;
 extern std::vector<CBoard*> aBoards;
+CPlayer* GetMPSpectatePlayer();
+extern int gForcedRNGValue;
 
 void ResetAllPlayers();
+#endif

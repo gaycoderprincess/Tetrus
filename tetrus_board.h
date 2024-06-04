@@ -1,3 +1,8 @@
+#ifndef TETRUS_BOARD_H
+#define TETRUS_BOARD_H
+
+#include "tetrus_config.h"
+
 const int gBoardSizeX = 10;
 const int gBoardSizeY = 20;
 
@@ -23,12 +28,17 @@ public:
 	double lineClearTimer;
 	int linesCleared;
 	int lineClearCombo;
+	int startingLevel;
 	int level;
 	int score;
 	bool isCoopBoard;
 	bool areStatsOnLeft;
 	bool areStatsOnBottom;
 	bool justUpdated;
+	bool prideFlags;
+	bool isRemoteBoard;
+	int remoteBoardPrideFlag;
+	tGameConfig::tColorSetup remoteBoardColorSetup;
 
 	CBoard(int sizeX, int sizeY);
 	tPlacedPiece* GetPieceAt(int x, int y);
@@ -43,11 +53,13 @@ public:
 	void Draw();
 	int LineClearCheck();
 	void MoveLine(int yFrom, int yTo);
+	bool EnoughLinesClearedForLevel() const;
 	void ClearLine(int y);
 	void ClearFullLines();
 	[[nodiscard]] bool AllowPlayerControl() const;
-	[[nodiscard]] NyaDrawing::CNyaRGBA32 GetColor(int id) const;
-	[[nodiscard]] NyaDrawing::CNyaRGBA32 GetTextureColor() const;
+	[[nodiscard]] tGameConfig::tColorSetup* GetColorSetup();
+	[[nodiscard]] NyaDrawing::CNyaRGBA32 GetColor(int id);
+	[[nodiscard]] NyaDrawing::CNyaRGBA32 GetTextureColor();
 	void Process();
 };
 extern CBoard gPlayer1Board;
@@ -56,3 +68,5 @@ extern CBoard gPlayer3Board;
 extern CBoard gPlayer4Board;
 extern CBoard gCoopTeam1Board;
 extern CBoard gCoopTeam2Board;
+extern CBoard gMPSpectateBoard;
+#endif

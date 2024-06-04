@@ -60,7 +60,7 @@ bool GetMenuGameOverQuit() {
 	return false;
 }
 
-bool GetMenuAcceptName() {
+bool GetMenuAcceptInput() {
 	if (IsKeyJustPressed(VK_RETURN)) return true;
 	if (IsKeyJustPressed(VK_ESCAPE)) return true;
 	if (IsPadKeyJustPressed(NYA_PAD_KEY_A)) return true;

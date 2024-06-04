@@ -8,8 +8,6 @@
 #include "tetrus_piece.h"
 #include "tetrus_saveload.h"
 #include "tetrus_player.h"
-#include "tetrus_replay.h"
-#include "tetrus_scoreboard.h"
 
 bool LoadControlConfig() {
 	std::ifstream file;

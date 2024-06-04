@@ -20,7 +20,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/include/taglib)
 link_directories(${CMAKE_SOURCE_DIR}/../nya-common/lib64)
 
-add_compile_definitions(IMGUI_USER_CONFIG="../../nya_imconfig.h" NYA_BACKEND_DX11 NYA_AUDIO_BASS NYA_NET_SDL2NET NYA_APP_WINDOWNAME="nya :3" NYA_FONTNAME="FranxurterTotallyMedium-gxwjp.ttf" NYA_FONTSIZE=64.0 NYA_APP_WINDOWED=false)
+add_compile_definitions(IMGUI_USER_CONFIG="../../nya_imconfig.h" NYA_BACKEND_DX11 NYA_AUDIO_BASS NYA_NET_ENET NYA_APP_WINDOWNAME="nya :3" NYA_FONTNAME="FranxurterTotallyMedium-gxwjp.ttf" NYA_FONTSIZE=64.0 NYA_APP_WINDOWED=false)
 add_executable(Tetrus
         ../nya-common/3rdparty/imgui/imgui.cpp
         ../nya-common/3rdparty/imgui/backends/imgui_impl_dx11.cpp
@@ -31,6 +31,7 @@ add_executable(Tetrus
         ../nya-common/nya_commondraw.cpp
         ../nya-common/nya_commonaudio.cpp
         ../nya-common/nya_commontimer.cpp
+        ../nya-common/nya_commonnet.cpp
         ../nya-common/nya_dx11_appbase.cpp
         tetrus_util.cpp
         tetrus_config.cpp
@@ -43,8 +44,12 @@ add_executable(Tetrus
         tetrus_menu.cpp
         tetrus_scoreboard.cpp
         tetrus_replay.cpp
+        tetrus_net.cpp
         main.cpp)
 
 target_link_libraries(Tetrus d3d11)
 target_link_libraries(Tetrus d3dcompiler)
 target_link_libraries(Tetrus bass)
+target_link_libraries(Tetrus enet)
+target_link_libraries(Tetrus ws2_32)
+target_link_libraries(Tetrus winmm)
