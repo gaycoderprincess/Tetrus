@@ -81,11 +81,12 @@ void ProcessGame() {
 			} else {
 				ShowEndgameScoreboard();
 			}
-		} else gGameState = STATE_MAIN_MENU;
+		}
+		else gGameState = STATE_MAIN_MENU;
 	}
 	if (!NyaNet::IsConnected() && gGameState != STATE_REPLAY_VIEW && anyPlayerAlive && GetMenuPause()) {
 		gGameState = gGameState == STATE_PLAYING ? STATE_PAUSED : STATE_PLAYING;
-		for (auto player: aPlayers) {
+		for (auto player : aPlayers) {
 			player->recordingReplay->AddEvent(gGameState == STATE_PLAYING ? REPLAY_EVENT_UNPAUSE : REPLAY_EVENT_PAUSE);
 		}
 		if (gGameState == STATE_PAUSED) PlayGameSound(SOUND_PAUSE);
