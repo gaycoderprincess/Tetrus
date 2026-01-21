@@ -136,30 +136,8 @@ const char* CController::GetKeyName(int id) {
 }
 
 const char* CController::GetControlName(int id) {
-	switch (id) {
-		case CONTROL_LEFT:
-			return "Move Left";
-		case CONTROL_RIGHT:
-			return "Move Right";
-		case CONTROL_DOWN:
-			return "Move Down";
-		case CONTROL_ROTATE:
-			return "Rotate CW";
-		case CONTROL_ROTATE_BACK:
-			return "Rotate CCW";
-		case CONTROL_LEFT_ALT:
-			return "Alt Move Left";
-		case CONTROL_RIGHT_ALT:
-			return "Alt Move Right";
-		case CONTROL_DOWN_ALT:
-			return "Alt Move Down";
-		case CONTROL_ROTATE_ALT:
-			return "Alt Rotate CW";
-		case CONTROL_ROTATE_BACK_ALT:
-			return "Alt Rotate CCW";
-		default:
-			return "Invalid";
-	}
+	if (id < 0 || id >= NUM_CONTROLS) return "Invalid";
+	return gPlayerControlNames[id];
 }
 
 CController aPlayerControls[4] = {CController(0), CController(1), CController(2), CController(3)};

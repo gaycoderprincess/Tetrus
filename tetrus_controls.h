@@ -28,6 +28,19 @@ public:
 		NUM_CONTROLS
 	};
 
+	constexpr static inline const char* gPlayerControlNames[] = {
+		"Move Left",
+		"Move Right",
+		"Move Down",
+		"Rotate CW",
+		"Rotate CCW",
+		"Alt Move Left",
+		"Alt Move Right",
+		"Alt Move Down",
+		"Alt Rotate CW",
+		"Alt Rotate CCW",
+	};
+
 	struct tControl {
 		int controller = -1;
 		int keyId = 0;
